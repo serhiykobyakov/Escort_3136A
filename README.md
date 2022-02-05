@@ -94,7 +94,7 @@ theValue := GetValueSI();
 
 ### Run
 
-The multimeter will be locked when communicating with the program, so set it as you like before you start the program.
+The multimeter will be locked when communicating with the program so set it as you like before you start the program.
 
 ### Contact
 For reporting [bugs, suggestions, patches](https://github.com/serhiykobyakov/Escort_3136A_FPC/issues)

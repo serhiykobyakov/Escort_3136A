@@ -114,9 +114,6 @@ type
        (0, 0, 0,   0,   0, 0))); // Range 6
 
 
-
-
-
     ACSystErrTable: array[1..4, 1..6, 0..5] of Real =
     (((0, 4e-4, 4e-4,  6e-4, 12e-4, 0),   // Range 1
       (0, 2e-3, 15e-4, 2e-3, 5e-3,  0),   // Range 2
