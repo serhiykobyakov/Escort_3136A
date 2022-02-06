@@ -1,3 +1,9 @@
+// Free Pascal unit (Lazarus) for Escort 3136A multimeter
+// Version 2022-02-06
+//
+// https://github.com/serhiykobyakov/Escort_3136A_FPC
+//
+
 unit Escort_3136A;
 
 {$mode objfpc}{$H+}
@@ -18,15 +24,16 @@ uses
 type
 
   Escort_3136A_device = object
+
   private
     ser: TBlockSerial;
     theComPort: string;
     theModestr, theRange, theModestr2, theRange2, theUnitsSI, theUnits2SI: string;
     ModeCode, ModeCode2, RangeCode, RangeCode2: Integer;   // leave it here!!!
     theValueSI, theRandErr, theSystErr, theValue2SI, theRandErr2, theSystErr2: Real;
+// -- testing - should be removed someday
     theTestStr: string; // remove after testing!
-    theDualDisplayMode: boolean;
-
+// -- testing - should be removed someday
 
   const
     ModeTable: array[0..11] of String =
@@ -53,6 +60,7 @@ type
       ('', '500mkA', '5mA',  '50mA',  '500mA',  '5A',    '10A'),  // A(ac+dc)
       ('', '500Ω',   '5kΩ',  '50kΩ',  '500kΩ',  '5MΩ',   '50MΩ'), // R cont
       ('', '-105,56..59,72', '', '',  '',       '',      ''));    // dBm
+
 
     RandErrTable: array[0..11, 0..6] of Real =
      ((0,    0.02,  0.02,   0.02,  0.02,  0.02, 0),     // Vdc
@@ -83,7 +91,6 @@ type
       (0,    0,     0,      0,     0,     0,    0));    // dBm
 
 
-                 // (ACModeCode, RangeCode, FreqCode)
     ACRandErrTable: array[1..4, 1..6, 0..5] of Real =
      (((0, 1, 0.5,  2, 3, 0),   // Range 1
        (0, 1, 0.35, 1, 3, 0),   // Range 2
@@ -143,38 +150,38 @@ type
       (0, 0, 4e-3, 0,    0,      0),   // Range 5
       (0, 0, 0,    0,    0,      0))); // Range 6
 
-
     function RoundUnc(val: Real): Real;
     function validFloat(val: string): Boolean;
     function FreqRangeI(freq: Real): Byte;
     function FreqRangeU(freq: Real): Byte;
 
 
-   public
-     constructor Init(ComPort: string);
-     destructor Done;
-     procedure GetData();
+  public
+    constructor Init(ComPort: string);
+    destructor Done;
+    procedure ResetDevice;
 
-     function GetValueSI(): Real;             // Get the measurement value
+    procedure GetData();
 
-     function GetUnitsSI(): string;
-     function GetRange(): string;
-     function GetMode(): string;
+    function GetValueSI(): Real;             // Get the measurement value
+    function GetUnitsSI(): string;
+    function GetRange(): string;
+    function GetMode(): string;
+    function GetUncertaintySI(): Real;       // get the measurement uncertainty in SI units
+    function GetRandUncertaintySI(): Real;   // get the only random part of the measurement
 
-     function GetUncertaintySI(): Real;       // get the measurement uncertainty in SI units
-     function GetRandUncertaintySI(): Real;   // get the only random part of the measurement
+    function GetValue2SI(): Real;             // Get the measurement value
+    function GetUnits2SI(): string;
+    function GetRange2(): string;
+    function GetMode2(): string;
+    function GetUncertainty2SI(): Real;       // get the measurement uncertainty in SI units
+    function GetRandUncertainty2SI(): Real;   // get the only random part of the measurement
 
-     function GetValue2SI(): Real;             // Get the measurement value
-     function GetUnits2SI(): string;
-     function GetRange2(): string;
-     function GetMode2(): string;
-     function GetUncertainty2SI(): Real;       // get the measurement uncertainty in SI units
-     function GetRandUncertainty2SI(): Real;   // get the only random part of the measurement
+// -- testing - should be removed someday
+    function GetTestStr(): string;  // reove after testing!
+// -- testing - should be removed someday
 
-     function GetTestStr(): string;  // reove after testing!
-
-     procedure ResetDevice;
-   end;
+  end;
 
 procedure SleepFor(thetime: LongInt);
 function Escort_3136A_on(ComPort: string): Boolean;
@@ -182,12 +189,10 @@ function Escort_3136A_on(ComPort: string): Boolean;
 
 //var
 
-
 const
   theDevice = 'Escort_3136A';    // the device name according to the manual
   waitForAnswer: Integer = 200;  // how long one have to wait for the answer (in milliseconds)
   waitForRead: Integer = 140;     // how long one have to wait for reading the answer from COM port (in milliseconds)
-  AcquisitionDelay = 20;         // the minimal delay between consequent readings (in miliseconds)
 
 
 
@@ -209,7 +214,6 @@ var
   str: string;
   res: Boolean;
 begin
-// test for APPA 109N
   ser := TBlockSerial.Create;
     try
       ser.RaiseExcept:=true;
@@ -268,7 +272,6 @@ var
   thefRange: Byte;
 begin
   thefRange := 0;
-
   if InRange(freq, 0, 30) then thefRange := 0
   else if InRange(freq, 30.001, 50) then thefRange := 1
   else if InRange(freq, 50.001, 2000) then thefRange := 2
@@ -284,7 +287,6 @@ var
   thefRange: Byte;
 begin
   thefRange := 0;
-
   if InRange(freq, 0, 30) then thefRange := 0
   else if InRange(freq, 30.001, 50) then thefRange := 1
   else if InRange(freq, 50.001, 10000) then thefRange := 2
@@ -300,9 +302,7 @@ var
   MyForm: TForm;
   MyLabel: TLabel;
   str: string;
-//  AppIni: TIniFile;
   FindFiles: TStringList;
-//  i: Integer;
 begin
 
 // save the ComPort so we can use it later in error dialogs
@@ -408,6 +408,8 @@ begin
   SleepFor(50);
 
 // send GTL command - close remote communication
+// need to unlock the multimeter at the end of the communication
+// so it doesn't left locked
   try
     ser.SendString('GTL'+CRLF);
   finally
@@ -415,107 +417,111 @@ begin
   end;
 
   ser.Free;
-// give it some time so the window appears for a while
-  SleepFor(200);
 
+  SleepFor(200);  // give it some time so the window appears for a while
   MyForm.Close;
   FreeAndNil(MyForm);
 end;
 
 procedure Escort_3136A_device.GetData();
 var
-  str, str1, str2, str3, str4, str5: string;
+  strState, strVal, strVal2: string;
   Code: Integer;
+// -- testing - should be removed someday
   tmpval: integer;
+// -- testing - should be removed someday
 begin
-  str := ''; str1 := ''; str2 := ''; str3 := ''; str4 := ''; str5 := '';
+
   ser.Purge;
+
   Repeat
-    str := '';
+    strState := '';
     try
       ser.SendString('R0'+#13+#10);
       Application.ProcessMessages;
-      if ser.canread(waitForAnswer) then str := ser.Recvstring(waitForRead);
+      if ser.canread(waitForAnswer) then strState := ser.Recvstring(waitForRead);
     finally
       ser.Purge;
     end;
-//  if (Length(str) <> 9) then showmessage('got ' + str + '!!!');
-  Until (Length(str) > 0);
+  Until (Length(strState) > 8);
 
-theTestStr := 'after R0 get: ' + str + LineEnding;
-theTestStr := theTestStr + 'length: ' + inttostr(length(str)) + LineEnding;
-theTestStr := theTestStr + 'first 2 chars: ' + copy(str, 1, 2) + LineEnding;
-theTestStr := theTestStr + 'hex: ' + 'x' + copy(str, 1, 2) + LineEnding;
-Val('x' + copy(str, 1, 2), tmpval, Code);
+
+// -- testing - should be removed someday
+theTestStr := 'after R0 get: ' + strState + LineEnding;
+theTestStr := theTestStr + 'length: ' + inttostr(length(strState)) + LineEnding;
+theTestStr := theTestStr + 'first 2 chars: ' + copy(strState, 1, 2) + LineEnding;
+theTestStr := theTestStr + 'hex: ' + 'x' + copy(strState, 1, 2) + LineEnding;
+Val('x' + copy(strState, 1, 2), tmpval, Code);
 theTestStr := theTestStr + 'value:' + IntToStr(tmpval) + LineEnding;
+// -- testing - should be removed someday
 
 
 // decoding f1 value
-  Val('x' + copy(str, 8, 1), ModeCode, Code);    //  f1 := copy(str, 8, 1);
+  Val('x' + copy(strState, 8, 1), ModeCode, Code);    //  f1 := copy(str, 8, 1);
   if (Code = 0) then begin theModestr := ModeTable[ModeCode]; theUnitsSI := UnitsTable[ModeCode]; end
   else begin theModestr := ModeTable[3]; theUnitsSI := UnitsTable[3]; end;
 
 // decoding r1 value
-  Val('x' + copy(str, 9, 1), RangeCode, Code);    //  r1 := copy(str, 9, 1);
+  Val('x' + copy(strState, 9, 1), RangeCode, Code);    //  r1 := copy(str, 9, 1);
   if (Code = 0) then theRange := RangeTable[ModeCode, RangeCode]
   else theRange := RangeTable[0, 0];
 
 // Read the 1st value
   Repeat
-  str2 := '';
+  strVal := '';
     try
       ser.SendString('R1'+#13+#10);
       Application.ProcessMessages;
-      if ser.canread(waitForAnswer) then str2 := ser.Recvstring(waitForRead);
+      if ser.canread(waitForAnswer) then strVal := ser.Recvstring(waitForRead);
     finally
       ser.Purge;
     end;
-  Until validFloat(str2);
+  Until validFloat(strVal);
 
-  theValueSI := StrToFloat(str2);
-  theRandErr := 0.01*RandErrTable[ModeCode, RangeCode]*theValueSI;
+  theValueSI := StrToFloat(strVal);
+  theRandErr := 0.01*RandErrTable[ModeCode, RangeCode]*abs(theValueSI);
   theSystErr := SystErrTable[ModeCode, RangeCode];
 
-  if (length(str) = 11) then // if we have the second value
+  if (length(strState) = 11) then // if we have the second value
     begin
 // decoding f2 value
-      Val('x' + copy(str, 10, 1), ModeCode2, Code);    //  f1 := copy(str, 8, 1);
+      Val('x' + copy(strState, 10, 1), ModeCode2, Code);    //  f1 := copy(str, 8, 1);
       if (Code = 0) then begin theModestr2 := ModeTable[ModeCode2]; theUnits2SI := UnitsTable[ModeCode2]; end
       else begin theModestr2 := ModeTable[3]; theUnits2SI := UnitsTable[3]; end;
 
 // decoding r2 value
-      Val('x' + copy(str, 11, 1), RangeCode2, Code);    //  r1 := copy(str, 9, 1);
+      Val('x' + copy(strState, 11, 1), RangeCode2, Code);    //  r1 := copy(str, 9, 1);
       if (Code = 0) then theRange2 := RangeTable[ModeCode2, RangeCode2]
       else theRange2 := RangeTable[0, 0];
 
 // Read the 2nd value
       Repeat
-        str2 := '';
+        strVal2 := '';
         try
           ser.SendString('R2'+#13+#10);
           Application.ProcessMessages;
           if ser.lastError<>0 then showmessage('Error in communication after ser.SendString("R0"+CRLF)');
-          if ser.canread(waitForAnswer) then str2 := ser.Recvstring(waitForRead);
+          if ser.canread(waitForAnswer) then strVal2 := ser.Recvstring(waitForRead);
         finally
           ser.Purge;
         end;
-      Until validFloat(str2);
+      Until validFloat(strVal2);
 
-      theValue2SI := StrToFloat(str2);
-      theRandErr2 := 0.01*RandErrTable[ModeCode2, RangeCode2]*theValueSI;
+      theValue2SI := StrToFloat(strVal2);
+      theRandErr2 := 0.01*RandErrTable[ModeCode2, RangeCode2]*abs(theValue2SI);
       theSystErr2 := SystErrTable[ModeCode2, RangeCode2];
 
 // voltage AC uncertainties
       if (ModeCode = 1) or (ModeCode = 8) then
         begin
-          theRandErr := 0.01*ACRandErrTable[ACModeCode[ModeCode], RangeCode, FreqRangeU(theValue2SI)]*theValueSI;
+          theRandErr := 0.01*ACRandErrTable[ACModeCode[ModeCode], RangeCode, FreqRangeU(theValue2SI)]*abs(theValueSI);
           theSystErr := ACSystErrTable[ACModeCode[ModeCode], RangeCode, FreqRangeU(theValue2SI)];
         end;
 
 // current AC uncertainties
       if (ModeCode = 5) or (ModeCode = 9) then
         begin
-          theRandErr := 0.01*ACRandErrTable[ACModeCode[ModeCode], RangeCode, FreqRangeI(theValue2SI)]*theValueSI;
+          theRandErr := 0.01*ACRandErrTable[ACModeCode[ModeCode], RangeCode, FreqRangeI(theValue2SI)]*abs(theValueSI);
           theSystErr := ACSystErrTable[ACModeCode[ModeCode], RangeCode, FreqRangeI(theValue2SI)];
         end;
     end;
@@ -582,21 +588,20 @@ begin
   Result := RoundUnc(theRandErr2);
 end;
 
+// -- testing - should be removed someday
 function Escort_3136A_device.GetTestStr(): string;
 begin
   Result := theTestStr;
 end;
+// -- testing - should be removed someday
 
 
 procedure Escort_3136A_device.ResetDevice;
-var
-  str: string;
-
 begin
   try
     ser.SendString('RST'+CRLF);
     if ser.lastError=0 then
-      if ser.canread(waitForAnswer) then str := ser.Recvstring(waitForRead)
+      if ser.canread(waitForAnswer) then ser.Recvstring(waitForRead)
       else showmessage('Err in cummunication!');
   finally
     ser.Purge;
