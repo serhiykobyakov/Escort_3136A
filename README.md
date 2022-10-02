@@ -1,4 +1,4 @@
-## Free Pascal unit (Lazarus) for Escort 3136A multimeter
+## Free Pascal and Python units for Escort 3136A multimeter
 
 ### What it does
 
