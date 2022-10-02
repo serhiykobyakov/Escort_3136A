@@ -10,7 +10,7 @@ import serial
 import serial.tools.list_ports
 import escort
 
-__version__ = '30.09.2022'
+__version__ = '02.10.2022'
 __author__ = 'Serhiy Kobyakov'
 
 
@@ -98,6 +98,7 @@ def printheader():
     print()
     data_file_header = data_file_header[:-1] + "\n"
 
+
 if __name__ == "__main__":
     print("\nLooking for devices at serial ports...", end="\r")
     ports = serial.tools.list_ports.comports()
@@ -136,7 +137,7 @@ if __name__ == "__main__":
             clearstr()
             print("\n")
             printheader()
-        elif ord(the_char) == 32: # Space
+        elif ord(the_char) == 32 or ord(the_char) == 13: # Space or Enter
             clearstr()
             for i in range(n_mmeters):
                 value_1, uncertainty_1 = mmeter[i].value_1

@@ -4,14 +4,11 @@ This module implements a communication interface to Escort 3136A multimeter,
 allowing to get the measured values along with their uncertainties.
 """
 
-
-
-__version__ = '01.09.2022'
+__version__ = '02.10.2022'
 __author__ = 'Serhiy Kobyakov'
 
 import sys
 import time
-#from unittest import result
 import tkinter as tk
 import math
 import serial
@@ -44,16 +41,14 @@ class Model3136A:
                          "Execution error")
 
     __ModeTable = ('Vdc', 'Vac', 'R', '', 'Adc', 'Aac', 'Diode', 'Frequency', 'V(ac+dc)',\
-#                    0      1     2   3     4      5       6          7           8
         'A(ac+dc)', 'R_cont', 'dBm')
-#           9          10       11
 
     __UnitsTable = ('V', 'V', 'Ohm', '', 'A', 'A', '', 'Hz', 'V', 'A', 'Ohm', 'dBm')
 
     __RangeTable = (('', '500mV',  '5V',   '50V',   '500V',   '1000V', ''),     # Vdc
                     ('', '500mV',  '5V',   '50V',   '500V',   '750V',  ''),     # Vac
                     ('', '500Ω',   '5kΩ',  '50kΩ',  '500kΩ',  '5MΩ',   '50MΩ'), # R
-                    ('',     '',       '',     '',      '',       '',      ''),
+                    ('', '',       '',     '',      '',       '',      ''),
                     ('', '500mkA', '5mA',  '50mA',  '500mA',  '5A',    '10A'),  # Adc
                     ('', '500mkA', '5mA',  '50mA',  '500mA',  '5A',    '10A'),  # Aac
                     ('', '2,3V',   '',     '',      '',       '',      ''),     # Diode
@@ -63,7 +58,6 @@ class Model3136A:
                     ('', '500Ω',   '5kΩ',  '50kΩ',  '500kΩ',  '5MΩ',   '50MΩ'), # R cont
                     ('', '-105,56..59,72', '', '',  '',       '',      ''))     # dBm
 
-    # [self.__S1][self.__r1]
     __RandErrTable = ((0,    0.02,  0.02,   0.02,  0.02,  0.02, 0),     # Vdc
                       (0,    0,     0,      0,     0,     0,    0),     # Vac
                       (0,    0.1,   0.1,    0.1,   0.1,   0.1,  0.3),   # R
@@ -77,7 +71,6 @@ class Model3136A:
                       (0,    0.1,   0.1,    0.1,   0.1,   0.1,  0.3),   # R cont
                       (0,    0.7,   0,      0,     0,     0,    0))     # dBm
 
-    # [self.__S1][self.__r1]
     __SystErrTable = ((0,    4e-5,  4e-4,   4e-3,  4e-2,  0.4,  0),     # Vdc
                       (0,    0,     0,      0,     0,     0,    0),     # Vac
                       (0,    5e-2,  0.3,    3,     30,    300,  3000),  # R
@@ -91,7 +84,6 @@ class Model3136A:
                       (0,    5e-2,  0.3,    3,     30,    300,  3000),  # R cont
                       (0,    0,     0,      0,     0,     0,    0))     # dBm
 
-    # [sub_code[self.__S1]][self.__r1][self.__freq_code]
     __ACRandErrTable = (((0, 1, 0.5,  2, 3, 0),   # Range 1
                          (0, 1, 0.35, 1, 3, 0),   # Range 2
                          (0, 1, 0.35, 1, 3, 0),   # Range 3     AC Voltage
@@ -120,7 +112,6 @@ class Model3136A:
                          (0, 0, 0.5, 0,   0, 0),   # Range 5
                          (0, 0, 0,   0,   0, 0)))  # Range 6
 
-    # [sub_code[self.__S1]][self.__r1][self.__freq_code]
     __ACSystErrTable = (((0, 4e-4,  4e-4, 6e-4, 12e-4, 0),   # Range 1
                          (0, 2e-3, 15e-4, 2e-3,  5e-3, 0),   # Range 2
                          (0, 2e-2, 15e-3, 2e-2,  5e-2, 0),   # Range 3     AC Voltage
@@ -161,6 +152,7 @@ class Model3136A:
     __r1 = 0
     __r2 = 0
     __freq_code = 0
+    __sub_code = (0, 0, 0, 0, 0, 1, 0, 0, 2, 3, 0, 0) # convert mode code to ac mode code
     __value_1 = 0.0
     __value_2 = 0.0
     __rand_err_1 = 0.0
@@ -169,15 +161,12 @@ class Model3136A:
     __syst_err_2 = 0.0
 
 
-
-
     @classmethod
     def atport(cls, comport):
         "Returns True if an Escort 3136A multimeter is connected at COM port \"comport\""
         res = False
         if not isinstance(comport, str):
             raise TypeError("comport: string value expected, got", type(str), "instead")
-
         ser = serial.Serial(port = comport,
                             baudrate = cls.COMPORTSPEED,
                             writeTimeout = cls.COMPORTWRITETIMEOUT,
@@ -220,7 +209,7 @@ class Model3136A:
         #     time.sleep(0.2)
         #     thestr = self.__ser.readline().strip()
         # time.sleep(0.4)
-        self.__ser.write(b"LLO\r\n") # init device locked, no manual mode setting allowed
+        self.__ser.write(b"LLO\r\n") # init device in locked state, no manual mode setting allowed
         self.__ser.readline()
 
         # set the device mode:
@@ -229,7 +218,8 @@ class Model3136A:
             self.__ser.write(bytes(cmd, 'ascii'))
             prompt = self.__ser.readline().strip()
             if prompt in self.__err_prompts:
-                print(f" Error: In __init__, command \"{cmd.strip()}\" command problem: {self.__prompt_err_msg(prompt)}")
+                print(f" Error: In __init__, command \"{cmd.strip()}\" command \
+problem: {self.__prompt_err_msg(prompt)}")
         if themode[0] in ["1", "5", "8", "9"]:
             # if the primary display is in AC mode - the secondary must be in frequency mode
             # in order to obtain the frequency range (to calculate the uncertainty)
@@ -242,7 +232,8 @@ class Model3136A:
                 self.__ser.write(bytes(cmd, 'ascii'))
                 prompt = self.__ser.readline().strip()
                 if prompt in self.__err_prompts:
-                    print(f" Error: In __init__, command \"{cmd.strip()}\" command problem: {self.__prompt_err_msg(prompt)}")
+                    print(f" Error: In __init__, command \"{cmd.strip()}\" command \
+problem: {self.__prompt_err_msg(prompt)}")
 
         time.sleep(0.1)
         self.__check_mode()
@@ -281,9 +272,11 @@ class Model3136A:
         button.focus_set()
         root.mainloop()
 
+
     def __prompt_err_msg(self, prompt) -> str:
         "converts the prompt to appropriate error message"
         return self.__err_prompts_msg[self.__err_prompts.index(prompt)]
+
 
     @staticmethod
     def __is_float(s_str: str) -> bool:
@@ -293,6 +286,7 @@ class Model3136A:
             return True
         except ValueError:
             return False
+
 
     @staticmethod
     def __roundunc(unc) -> float:
@@ -349,7 +343,6 @@ class Model3136A:
                 the_code = 4
             elif 100000.0 < self.__value_2:
                 the_code = 5
-
         if self.__S1 in [5, 9]:
             # Current modes:
             if self.__value_2 <= 30.0:
@@ -364,8 +357,6 @@ class Model3136A:
                 the_code = 4
             elif 20000.0 < self.__value_2:
                 the_code = 5
-
-        #print(f"f1: {self.__S1}, Freq: {self.__value_2} Hz,  Fcode:{the_code},  r1:{self.__r1}")
         self.__freq_code = the_code
 
 
@@ -376,7 +367,6 @@ class Model3136A:
             val1 = val2 = ''
             self.__value_2 = 0.0
             got_answer = False
-
             while got_answer is not True:
                 val1 = self.__send_and_read("R1")
                 if self.__is_float(val1):
@@ -385,7 +375,6 @@ class Model3136A:
                         self.__RandErrTable[self.__S1][self.__r1] * abs(self.__value_1)
                     self.__syst_err_1 = self.__SystErrTable[self.__S1][self.__r1]
                     got_answer = True
-
             if len(self.__modestring) == 11:
                 got_answer = False
                 while got_answer is not True:
@@ -394,15 +383,15 @@ class Model3136A:
                         self.__value_2 = float(val2)
                         if self.__S1 in [1, 5, 8, 9]:
                             self.__check_freq_range()
-                            sub_code = (0, 0, 0, 0, 0, 1, 0, 0, 2, 3, 0, 0)
-                            self.__rand_err_1 = 0.01 *\
-                                self.__ACRandErrTable[sub_code[self.__S1]][self.__r1][self.__freq_code] * abs(self.__value_1)
-                            self.__syst_err_1 = self.__ACSystErrTable[sub_code[self.__S1]][self.__r1][self.__freq_code]
+                            self.__rand_err_1 = 0.01 * self.__ACRandErrTable[\
+                                self.__sub_code[self.__S1]][self.__r1][self.__freq_code] *\
+                                abs(self.__value_1)
+                            self.__syst_err_1 = self.__ACSystErrTable[self.__sub_code[self.__S1]]\
+                                [self.__r1][self.__freq_code]
                         self.__rand_err_2 = 0.01 *\
                             self.__RandErrTable[self.__S2][self.__r2] * abs(self.__value_2)
                         self.__syst_err_2 = self.__SystErrTable[self.__S2][self.__r2]
                         got_answer = True
-
             self.__lastcomtimestamp = time.time()
         return self.__value_1, self.__value_2
 
