@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-""" sample programto use few Escort 3136A multimeters simultaneously  """
+""" sample program to use few Escort 3136A multimeters simultaneously  """
 
 import sys
 import time
@@ -82,10 +82,12 @@ def savedata():
     print()
 
 
-def printheader():
+def print_header():
     "print header of the table"
     global data_file_header
     data_file_header = ""
+    global the_data
+    the_data = ""
     for n in range(n_mmeters):
         print("#".rjust(NUMDIGITS + 2) + str(n).ljust(NUMDIGITS + 3), "", end="")
     print()
@@ -116,7 +118,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print()
-    printheader()
+    print_header()
 
     while True:
         time.sleep(0.1)
@@ -136,7 +138,7 @@ if __name__ == "__main__":
         elif ord(the_char) == 114:  # r - restart
             clearstr()
             print("\n")
-            printheader()
+            print_header()
         elif ord(the_char) == 32 or ord(the_char) == 13: # Space or Enter
             clearstr()
             for i in range(n_mmeters):
