@@ -2,9 +2,7 @@
 
 ### What they do
 
-You can connect your Escort 3136A multimeter(s) to PC using nullmodem RS232 cable and acquire the data from multimeter(s) using this software.
-
-The units can acquire the actual multimeter readings and calculate the uncertainties of the reading (the full and the random part, see the description below).
+You can connect your Escort 3136A multimeter(s) to PC using nullmodem RS232 cable. The units can acquire the actual multimeter readings and calculate the uncertainties of the reading (the full and the random part, see the description below).
 
 The software has been tested for errors, stability and speed (bugs free is not guaranteed, see the licence).
 
